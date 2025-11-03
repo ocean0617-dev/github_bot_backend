@@ -195,9 +195,9 @@ router.post('/bulk', async (req, res) => {
       // Get emails for specific repository
       const query = { repository };
       
-      // Filter by sender if allowResend is not enabled (exclude emails already sent by this sender)
-      const allowResend = requestSmtpConfig?.allowResend === true;
-      if (!allowResend) {
+      // Filter by sender if excludeAlreadySent is enabled (exclude emails already sent by this sender)
+      const excludeAlreadySent = requestSmtpConfig?.excludeAlreadySent === true;
+      if (excludeAlreadySent) {
         const senderType = detectSender(smtpConfig);
         query[`emailSent.sender`] = { $ne: senderType };
       }
