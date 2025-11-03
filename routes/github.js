@@ -14,7 +14,7 @@ router.post('/collect', async (req, res) => {
       return res.status(400).json({ error: 'Repository is required (format: owner/repo or full GitHub URL)' });
     }
 
-    const githubToken = process.env.GITHUB_TOKEN;
+    const githubToken = process.env.TOKEN;
     const io = req.app.get('io'); // Get socket.io instance
 
     const collector = new EmailCollector(githubToken, io);
@@ -51,7 +51,7 @@ router.post('/collect', async (req, res) => {
 router.get('/rate-limit', async (req, res) => {
   try {
     const GitHubAPI = require('../utils/githubApi');
-    const githubAPI = new GitHubAPI(process.env.GITHUB_TOKEN);
+    const githubAPI = new GitHubAPI(process.env.TOKEN);
     const status = githubAPI.getRateLimitStatus();
     res.json(status);
   } catch (error) {

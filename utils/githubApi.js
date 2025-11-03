@@ -5,7 +5,7 @@ class GitHubAPI {
     this.token = token;
     this.baseURL = 'https://api.github.com';
     this.rateLimitRemaining = 5000;
-    this.rateLimitReset = Date.now();
+    this.rateLimitReset = Date.now() + 3600000; // Initialize to 1 hour from now (GitHub rate limit resets hourly)
   }
 
   /**
@@ -23,16 +23,22 @@ class GitHubAPI {
     }
 
     try {
-      // Check rate limit - more aggressive waiting to avoid hitting limit
-      if (this.rateLimitRemaining < 50) {
+      // Check rate limit - only wait if we're actually at the limit or very close
+      // Don't wait if we have > 10 remaining and haven't received actual rate limit info yet
+      const hasValidRateLimitInfo = this.rateLimitReset > Date.now() + 1000; // Reset time should be in the future
+      
+      if (this.rateLimitRemaining <= 10 && hasValidRateLimitInfo) {
         const waitTime = Math.max(0, this.rateLimitReset - Date.now());
         if (waitTime > 0 && waitTime < 3600000) { // Only wait if less than 1 hour
           const waitSeconds = Math.ceil(waitTime / 1000);
-          console.log(`⚠️ Rate limit low (${this.rateLimitRemaining} remaining). Waiting ${waitSeconds} seconds until reset...`);
+          console.log(`⚠️ Rate limit very low (${this.rateLimitRemaining} remaining). Waiting ${waitSeconds} seconds until reset...`);
           await new Promise(resolve => setTimeout(resolve, waitTime + 2000)); // Add 2 second buffer
-          // Reset rate limit after waiting
+          // Reset rate limit after waiting - will be updated from API response
           this.rateLimitRemaining = 5000;
         }
+      } else if (this.rateLimitRemaining < 50 && hasValidRateLimitInfo) {
+        // Log warning but don't wait - just slow down requests
+        console.log(`⚠️ Rate limit low (${this.rateLimitRemaining} remaining). Continuing but be aware of rate limits.`);
       }
 
       // Configure axios with timeout and better error handling
