@@ -8,6 +8,12 @@ const emailSentSchema = new mongoose.Schema({
     enum: ['outlook', 'gmail'],
     lowercase: true
   },
+  senderEmail: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
   sentAt: {
     type: Date,
     default: Date.now

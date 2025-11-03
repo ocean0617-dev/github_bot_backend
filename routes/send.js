@@ -195,9 +195,12 @@ router.post('/bulk', async (req, res) => {
       // Get emails for specific repository
       const query = { repository };
       
-      // Filter by sender if specified (exclude emails already sent by this sender)
-      const senderType = detectSender(smtpConfig);
-      query[`emailSent.sender`] = { $ne: senderType };
+      // Filter by sender if allowResend is not enabled (exclude emails already sent by this sender)
+      const allowResend = requestSmtpConfig?.allowResend === true;
+      if (!allowResend) {
+        const senderType = detectSender(smtpConfig);
+        query[`emailSent.sender`] = { $ne: senderType };
+      }
       
       emails = await Email.find(query);
       
@@ -258,6 +261,7 @@ router.post('/bulk', async (req, res) => {
     .then(async (results) => {
       // Detect sender type
       const senderType = detectSender(smtpConfig);
+      const senderEmail = smtpConfig.user || smtpConfig.from || ''; // Get actual sender email
       
       // Update email records with sender tracking
       const sentEmails = results.sent.map(r => r.email);
@@ -271,6 +275,7 @@ router.post('/bulk', async (req, res) => {
             $addToSet: {
               emailSent: {
                 sender: senderType,
+                senderEmail: senderEmail,
                 sentAt: now
               }
             }
@@ -301,6 +306,7 @@ router.post('/bulk', async (req, res) => {
             $push: {
               sendHistory: {
                 sender: senderType,
+                senderEmail: senderEmail,
                 sentCount: sentCount,
                 sentAt: now
               }

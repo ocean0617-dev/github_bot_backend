@@ -8,6 +8,12 @@ const repositorySendHistorySchema = new mongoose.Schema({
     enum: ['outlook', 'gmail'],
     lowercase: true
   },
+  senderEmail: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
   sentCount: {
     type: Number,
     required: true,
