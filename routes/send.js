@@ -195,11 +195,20 @@ router.post('/bulk', async (req, res) => {
       // Get emails for specific repository
       const query = { repository };
       
-      // Filter by sender if excludeAlreadySent is enabled (exclude emails already sent by this sender)
+      // Filter by senderEmail if excludeAlreadySent is enabled (exclude emails already sent by this exact sender email)
       const excludeAlreadySent = requestSmtpConfig?.excludeAlreadySent === true;
       if (excludeAlreadySent) {
-        const senderType = detectSender(smtpConfig);
-        query[`emailSent.sender`] = { $ne: senderType };
+        const senderEmail = (smtpConfig.user || smtpConfig.from || '').toLowerCase().trim();
+        
+        // Exclude emails where emailSent array contains an entry with this senderEmail
+        // Use $not with $elemMatch to check if senderEmail exists in the array
+        query.emailSent = {
+          $not: {
+            $elemMatch: {
+              senderEmail: senderEmail
+            }
+          }
+        };
       }
       
       emails = await Email.find(query);
