@@ -16,20 +16,13 @@ router.get('/', async (req, res) => {
     const search = req.query.search;
     const collectedFrom = req.query.collectedFrom;
     const collectedTo = req.query.collectedTo;
+    const sentStatus = req.query.sentStatus;
 
     const query = {};
     
     if (repository) {
       // Support partial matching for repository filter
       query.repository = { $regex: repository, $options: 'i' };
-    }
-
-    if (search) {
-      query.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { username: { $regex: search, $options: 'i' } }
-      ];
     }
 
     // Date filtering for collectedAt
@@ -44,6 +37,46 @@ router.get('/', async (req, res) => {
         endDate.setHours(23, 59, 59, 999);
         query.collectedAt.$lte = endDate;
       }
+    }
+
+    // Filter by sent status
+    const sentStatusQuery = {};
+    if (sentStatus === 'sent') {
+      // Emails that have been sent (emailSent array has at least one item)
+      sentStatusQuery.$expr = { $gt: [{ $size: { $ifNull: ['$emailSent', []] } }, 0] };
+    } else if (sentStatus === 'unsent') {
+      // Emails that haven't been sent (emailSent array is empty or doesn't exist)
+      sentStatusQuery.$or = [
+        { emailSent: { $exists: false } },
+        { emailSent: { $size: 0 } }
+      ];
+    }
+
+    // Search filter
+    const searchQuery = {};
+    if (search) {
+      searchQuery.$or = [
+        { email: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Combine sent status and search filters if both exist
+    const additionalFilters = [];
+    if (Object.keys(sentStatusQuery).length > 0) {
+      additionalFilters.push(sentStatusQuery);
+    }
+    if (Object.keys(searchQuery).length > 0) {
+      additionalFilters.push(searchQuery);
+    }
+
+    if (additionalFilters.length > 1) {
+      // Multiple filters need to be combined with $and
+      query.$and = additionalFilters;
+    } else if (additionalFilters.length === 1) {
+      // Single filter can be merged directly
+      Object.assign(query, additionalFilters[0]);
     }
 
     const emails = await Email.find(query)
