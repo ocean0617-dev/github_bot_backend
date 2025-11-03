@@ -267,20 +267,32 @@ router.post('/bulk', async (req, res) => {
       const sentEmails = results.sent.map(r => r.email);
       const now = new Date();
       
-      // For each sent email, add sender info to emailSent array
+      // For each sent email, add sender info to emailSent array (prevent duplicates)
       for (const emailAddress of sentEmails) {
-        await Email.updateOne(
-          { email: emailAddress },
-          {
-            $addToSet: {
-              emailSent: {
-                sender: senderType,
-                senderEmail: senderEmail,
-                sentAt: now
-              }
-            }
+        // First, check if senderEmail already exists in emailSent array
+        const emailRecord = await Email.findOne({ email: emailAddress });
+        
+        if (emailRecord) {
+          // Check if this senderEmail already exists
+          const existingSenderIndex = emailRecord.emailSent.findIndex(
+            entry => entry.senderEmail === senderEmail.toLowerCase().trim()
+          );
+          
+          if (existingSenderIndex !== -1) {
+            // Update existing entry with new sentAt timestamp
+            emailRecord.emailSent[existingSenderIndex].sentAt = now;
+            emailRecord.emailSent[existingSenderIndex].sender = senderType;
+            await emailRecord.save();
+          } else {
+            // Add new entry if senderEmail doesn't exist
+            emailRecord.emailSent.push({
+              sender: senderType,
+              senderEmail: senderEmail.toLowerCase().trim(),
+              sentAt: now
+            });
+            await emailRecord.save();
           }
-        );
+        }
       }
 
       // Update repository monitoring
