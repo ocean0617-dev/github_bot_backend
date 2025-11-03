@@ -8,16 +8,17 @@ const EmailCollector = require('../utils/emailCollector');
  */
 router.post('/collect', async (req, res) => {
   try {
-    const { repository, options = {} } = req.body;
+    const { repository, options = {}, githubToken } = req.body;
 
     if (!repository) {
       return res.status(400).json({ error: 'Repository is required (format: owner/repo or full GitHub URL)' });
     }
 
-    const githubToken = process.env.TOKEN;
+    // Use token from request body, fallback to env variable if not provided (for backward compatibility)
+    const token = githubToken || process.env.GITHUB_TOKEN || undefined;
     const io = req.app.get('io'); // Get socket.io instance
 
-    const collector = new EmailCollector(githubToken, io);
+    const collector = new EmailCollector(token, io);
     
     // Run collection in background (don't await to avoid timeout)
     collector.collectFromRepository(repository, options)
@@ -50,8 +51,11 @@ router.post('/collect', async (req, res) => {
  */
 router.get('/rate-limit', async (req, res) => {
   try {
+    const { token } = req.query;
+    // Use token from query param, fallback to env variable if not provided
+    const githubToken = token || process.env.GITHUB_TOKEN || undefined;
     const GitHubAPI = require('../utils/githubApi');
-    const githubAPI = new GitHubAPI(process.env.TOKEN);
+    const githubAPI = new GitHubAPI(githubToken);
     const status = githubAPI.getRateLimitStatus();
     res.json(status);
   } catch (error) {
